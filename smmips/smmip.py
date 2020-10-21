@@ -14,10 +14,13 @@ from smmip_libs import align_fastqs, assign_reads_to_smmips, create_tree, read_p
 count_alleles_across_panel, write_table_variants, parse_cosmic, get_genomic_positions
 
 
-def assign_smmips(args):
+def assign_smmips(outdir, fastq1, fastq2, reference, bwa, prefix, remove, panel, upstream_nucleotides,
+                  umi_length, max_subs, match, mismatch, gap_opening, gap_extension,
+                  alignment_overlap_threshold, matches_threshold):
     '''
-    (list) -> None
-
+    (str, str, str, str, str, str, bool, str, int, int, int, float | int, float | int, float | int
+    float | int, float | int, float | int) -> None
+     
     Parameters
     ----------
     - outdir (str): Path to directory where directory structure is created
@@ -47,18 +50,18 @@ def assign_smmips(args):
     '''
     
     # use current directory if outdir not provided
-    if args.outdir is None:
+    if outdir is None:
         outdir = os.getcwd()
     else:
-        outdir = args.outdir
+        outdir = outdir
     # create directory structure within outdir, including outdir if doesn't exist
     finaldir, statsdir, aligndir = create_tree(outdir)
     
     # align fastqs
-    prefix = os.path.basename(args.prefix)
-    sortedbam = align_fastqs(args.fastq1, args.fastq2, args.reference, outdir, args.bwa, prefix, args.remove)
+    prefix = os.path.basename(prefix)
+    sortedbam = align_fastqs(fastq1, fastq2, reference, outdir, bwa, prefix, remove)
     # assign reads to smmips
-    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, read_panel(args.panel), args.upstream_nucleotides, args.umi_length, args.max_subs, args.match, args.mismatch, args.gap_opening, args.gap_extension, args.alignment_overlap_threshold, args.matches_threshold, args.remove)
+    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, remove)
     
     # write json to files
     with open(os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix)), 'w') as newfile:
@@ -67,13 +70,13 @@ def assign_smmips(args):
         json.dump(smmip_counts, newfile, indent=4)
    
    
-def count_variants(args):
+def count_variants(bamfile, panel, outdir, max_depth, truncate, ignore_orphans,
+                   stepper, prefix, reference, cosmicfile):
     '''
     (str, str, str, int, bool, bool, str, str, str) -> None
-    
+   
     Parameters
     ----------
-    
     - bamfile (str): Path to the coordinate-sorted and indexed bam file with annotated reads with smMIP and UMI tags
     - panel (str): Path to panel file with smMIP information
     - outdir (str): Path to output directory where out directory is written
@@ -93,30 +96,33 @@ def count_variants(args):
     '''
     
     # use current directory if outdir not provided
-    if args.outdir == None:
+    if outdir == None:
         outdir = os.getcwd()
     else:
-        outdir=args.outdir
+        outdir = outdir
     # create directory structure within outdir, including outdir if doesn't exist
     finaldir, statsdir, aligndir = create_tree(outdir)
 
     # get the allele counts at each position across all target regions
-    Counts = count_alleles_across_panel(args.bamfile, read_panel(args.panel), args.max_depth, args.truncate, args.ignore_orphans, args.stepper)
+    Counts = count_alleles_across_panel(bamfile, read_panel(panel), max_depth, truncate, ignore_orphans, stepper)
     # get positions at each chromosome with variant information
     positions = get_genomic_positions(Counts)
     # get cosmic mutation information
-    mutations = parse_cosmic(args.reference, args.cosmicfile, positions)
+    mutations = parse_cosmic(reference, cosmicfile, positions)
 
     # write base counts to file
-    outputfile = os.path.join(finaldir, '{0}_Variant_Counts.txt'.format(args.prefix))
+    outputfile = os.path.join(finaldir, '{0}_Variant_Counts.txt'.format(prefix))
     write_table_variants(Counts, outputfile, mutations)
 
-        
-if __name__ == '__main__':
+
+def main():
+    '''
+    main function to run the smmips script
+    '''
     
     # create main parser    
     parser = argparse.ArgumentParser(prog='smmip.py', description="A tool to analyse smMIP libraries")
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
        		
     # assign smMips to reads
     a_parser = subparsers.add_parser('assign', help='Extract UMIs from reads and assign reads to smmips')
@@ -143,8 +149,7 @@ if __name__ == '__main__':
                           help = 'Cut-off value for the length of the de-gapped overlap between read1 and read2. Default is 60bp')
     a_parser.add_argument('-mt', '--Matches_threshold', dest='matches_threshold', type=float, default=0.7, \
                           help = 'Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2. Used only if report is True. Default is 0.7')
-    a_parser.set_defaults(func=assign_smmips)
-    
+        
     ## Variant counts command
     v_parser = subparsers.add_parser('variant', help='Write table with variant counts across target regions')
     v_parser.add_argument('-b', '--Bam', dest='bamfile', help = 'Path to the coordinate-sorted and indexed input bam with UMI and smmip tags', required=True)
@@ -161,8 +166,27 @@ if __name__ == '__main__':
     v_parser.set_defaults(func=count_variants)
 
     args = parser.parse_args()
-    try:
-        args.func(args)
-    except AttributeError as e:
-        print(e)
-        print(parser.format_help())        
+
+    if args.subparser_name == 'assign':
+        try:
+            assign_smmips(args.outdir, args.fastq1, args.fastq2, args.reference, args.bwa, args.prefix, args.remove,
+                          args.panel, args.upstream_nucleotides, args.umi_length, args.max_subs,
+                          args.match, args.mismatch, args.gap_opening, args.gap_extension,
+                          args.alignment_overlap_threshold, args.matches_threshold)
+        except AttributeError as e:
+            print('#############\n')
+            print('AttributeError: {0}\n'.format(e))
+            print('#############\n\n')
+            print(parser.format_help())
+    elif args.subparser_name == 'variant':
+        try:
+            count_variants(args.bamfile, args.panel, args.outdir, args.max_depth, args.truncate, args.ignore_orphans,
+                   args.stepper, args.prefix, args.reference, args.cosmicfile)
+        except AttributeError as e:
+            print('#############\n')
+            print('AttributeError: {0}\n'.format(e))
+            print('#############\n\n')
+            print(parser.format_help())
+    elif args.subparser_name is None:
+        print(parser.format_help())
+
