@@ -8,7 +8,7 @@ Created on Tue Jul 28 12:54:35 2020
 import argparse
 import os
 import json
-from smmips.smmip_libs import align_fastqs, assign_reads_to_smmips, create_tree, read_panel, \
+from smmips.smmips_libs import align_fastqs, assign_reads_to_smmips, create_tree, read_panel, \
 count_alleles_across_panel, write_table_variants, parse_cosmic, get_genomic_positions
 
 
