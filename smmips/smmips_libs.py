@@ -794,9 +794,12 @@ def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max
         os.remove(empty_filename)
         
     # update metrics dict
-    metrics.update({'percent_assigned': round(metrics['assigned'] / metrics['reads'] * 100, 4)})
-    metrics.update({'percent_not_assigned': round(metrics['not_assigned'] / metrics['reads'] * 100, 4)})
-    metrics.update({'percent_empty_smmips': round(metrics['assigned_empty'] / metrics['assigned'] * 100, 4)})
+    assigned_ratio = round(metrics['assigned'] / metrics['reads'] * 100, 4) if metrics['reads'] != 0 else 0
+    unassigned_ratio = round(metrics['not_assigned'] / metrics['reads'] * 100, 4) if metrics['reads'] != 0 else 0
+    empty_ratio = round(metrics['assigned_empty'] / metrics['assigned'] * 100, 4) if metrics['assigned'] != 0 else 0
+    metrics.update({'percent_assigned': assigned_ratio})
+    metrics.update({'percent_not_assigned': unassigned_ratio})
+    metrics.update({'percent_empty_smmips': empty_ratio})
     
     end_time = time.time()
     run_time = round(end_time - start_time, 3)
