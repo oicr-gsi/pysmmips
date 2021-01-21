@@ -342,18 +342,20 @@ def main():
     v_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the variant count table', required=True)
     v_parser.add_argument('-rf', '--Reference', dest='reference', type=str, choices=['37', '38'], help = 'Reference genome. Must be the same reference used in panel. Accepted values: 37 or 38', required=True)
     v_parser.add_argument('-c', '--Cosmic', dest='cosmicfile', help = 'Tab separated table of all COSMIC coding point mutations from targeted and genome wide screens', required=True)
-    v_parser.set_defaults(func=count_variants)
+    #v_parser.set_defaults(func=count_variants)
 
     args = parser.parse_args()
 
     if args.subparser_name == 'align':
-        try:
-            align_reads(args.outdir, args.fastq1, args.fastq2, args.reference, args.bwa, args.prefix, args.remove)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
+        align_reads(args.outdir, args.fastq1, args.fastq2, args.reference, args.bwa, args.prefix, args.remove)
+        
+#        try:
+#            align_reads(args.outdir, args.fastq1, args.fastq2, args.reference, args.bwa, args.prefix, args.remove)
+#        except AttributeError as e:
+#            print('#############\n')
+#            print('AttributeError: {0}\n'.format(e))
+#            print('#############\n\n')
+#            print(parser.format_help())
     elif args.subparser_name == 'assign':
         try:
             assign_smmips(args.outdir, args.sortedbam, args.prefix, args.chromosome, args.remove,
