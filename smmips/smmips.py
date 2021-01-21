@@ -390,7 +390,7 @@ def count_variants(bamfile, panel, outdir, max_depth, truncate, ignore_orphans,
 
 
 
-if __name__ == '__main__":
+if __name__ == '__main__':
        
     # create main parser    
     parser = argparse.ArgumentParser(prog='smmip.py', description="A tool to analyse smMIP libraries")
