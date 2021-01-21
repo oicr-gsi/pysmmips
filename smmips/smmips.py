@@ -10,9 +10,17 @@ import os
 import json
 import pysam
 import time
-from smmips.smmips_libs import align_fastqs, assign_reads_to_smmips, create_tree, read_panel, \
+
+#from smmips.smmips_libs import align_fastqs, assign_reads_to_smmips, create_tree, read_panel, \
+#count_alleles_across_panel, write_table_variants, parse_cosmic, get_genomic_positions, remove_bam_extension, \
+#sort_index_bam, merge_smmip_counts, merge_stats, merge_bams, sort_index
+
+from smmips_libs import align_fastqs, assign_reads_to_smmips, create_tree, read_panel, \
 count_alleles_across_panel, write_table_variants, parse_cosmic, get_genomic_positions, remove_bam_extension, \
 sort_index_bam, merge_smmip_counts, merge_stats, merge_bams, sort_index
+
+
+
 
 
 def align_reads(outdir, fastq1, fastq2, reference, bwa, prefix, remove):
