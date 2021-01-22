@@ -529,18 +529,22 @@ def remove_bam_extension(bamfile):
     - bamfile (str): Path to bam file
     '''
     
-    if bamfile[-len('.sorted.bam'):] == '.sorted.bam':
-        return bamfile[: -len('.sorted.bam')]
-    elif bamfile[-len('.assigned_reads.bam'):] == '.assigned_reads.bam':
-        return bamfile[: -len('.assigned_reads.bam')]
-    elif bamfile[-len('.unassigned_reads.bam'):] == '.unassigned_reads.bam':
-        return bamfile[: -len('.unassigned_reads.bam')]
-    elif bamfile[-len('.empty_reads.bam'):] == '.empty_reads.bam':
-        return bamfile[: -len('.empty_reads.bam')]
-    elif bamfile[-len('.bam'):] == '.bam':
-        return bamfile[: -len('.bam')]
+    
+    if '.temp.' in bamfile:
+        return bamfile[:bamfile.rfind('.temp.')]
     else:
-        return bamfile
+        if bamfile[-len('.sorted.bam'):] == '.sorted.bam':
+            return bamfile[: -len('.sorted.bam')]
+        elif bamfile[-len('.assigned_reads.bam'):] == '.assigned_reads.bam':
+            return bamfile[: -len('.assigned_reads.bam')]
+        elif bamfile[-len('.unassigned_reads.bam'):] == '.unassigned_reads.bam':
+            return bamfile[: -len('.unassigned_reads.bam')]
+        elif bamfile[-len('.empty_reads.bam'):] == '.empty_reads.bam':
+            return bamfile[: -len('.empty_reads.bam')]
+        elif bamfile[-len('.bam'):] == '.bam':
+            return bamfile[: -len('.bam')]
+        else:
+            return bamfile
     
 
 
