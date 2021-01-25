@@ -136,9 +136,9 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
         sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
         sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
     else:
-        sort_index_bam(assigned_filename, '.temp.assigned_reads.sorted.bam'.format(chromosome))
-        sort_index_bam(unassigned_filename, '.temp.unassigned_reads.sorted.bam'.format(chromosome))
-        sort_index_bam(empty_filename, '.temp.empty_reads.sorted.bam'.format(chromosome))
+        sort_index_bam(assigned_filename, '.temp.assigned_reads.sorted.bam')
+        sort_index_bam(unassigned_filename, '.temp.unassigned_reads.sorted.bam')
+        sort_index_bam(empty_filename, '.temp.empty_reads.sorted.bam')
     
     # remove intermediate files
     if remove:
