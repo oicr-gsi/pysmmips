@@ -156,8 +156,8 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
         statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix))
         statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.json'.format(prefix))
     else:
-        statsfile1 = os.path.join(statsdir, '{0}_{1}.temp.extraction_metrics.json'.format(prefix, chromosome))
-        statsfile2 = os.path.join(statsdir, '{0}_{1}.temp.smmip_counts.json'.format(prefix, chromosome))
+        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, chromosome))
+        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, chromosome))
     with open(statsfile1, 'w') as newfile:
         json.dump(metrics, newfile, indent=4)
     with open(statsfile2, 'w') as newfile:
@@ -199,7 +199,7 @@ def merge_chromosome_files(outdir, remove):
     read_counts = merge_stats(L2)
 
     # get prefix name
-    prefix = L2[0][:L2[0].index('_extraction_metrics')]
+    prefix = os.path.basename(F2[0][:F2[0].index('_temp')])
     
     statsfile1 = os.path.join(statsDir, '{0}_smmip_counts.json'.format(prefix))
     statsfile2 = os.path.join(statsDir, '{0}_extraction_metrics.json'.format(prefix))
