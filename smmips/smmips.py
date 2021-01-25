@@ -215,9 +215,9 @@ def merge_chromosome_files(outdir, remove):
     unassigned = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.sorted.bam' in i and i[i.index('temp.unassigned_reads.sorted.bam'):] == 'temp.unassigned_reads.sorted.bam']
     empty = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i and i[i.index('temp.empty_reads.sorted.bam'):] == 'temp.empty_reads.sorted.bam']
     
-    assigned_filename = prefix + '.assigned_reads.bam'
-    unassigned_filename = prefix + '.unassigned_reads.bam'
-    empty_filename = prefix + '.empty_reads.bam'
+    assigned_filename = os.path.join(finalDir, prefix + '.assigned_reads.bam')
+    unassigned_filename = os.path.join(finalDir, prefix + '.unassigned_reads.bam')
+    empty_filename = os.path.join(finalDir, prefix + '.empty_reads.bam')
     
     merge_bams(assigned_filename, assigned)
     merge_bams(unassigned_filename, unassigned)
