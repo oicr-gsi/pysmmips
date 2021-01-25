@@ -156,8 +156,8 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
         statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix))
         statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.json'.format(prefix))
     else:
-        statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.{1}.temp.json'.format(prefix, chromosome))
-        statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.{1}.temp.json'.format(prefix, chromosome))
+        statsfile1 = os.path.join(statsdir, '{0}_{1}.temp.extraction_metrics.json'.format(prefix, chromosome))
+        statsfile2 = os.path.join(statsdir, '{0}_{1}.temp.smmip_counts.json'.format(prefix, chromosome))
     with open(statsfile1, 'w') as newfile:
         json.dump(metrics, newfile, indent=4)
     with open(statsfile2, 'w') as newfile:
