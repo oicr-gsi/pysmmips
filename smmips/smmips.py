@@ -224,9 +224,9 @@ def merge_chromosome_files(outdir, remove):
     merge_bams(empty_filename, empty)
     
     # sort and index merged bams
-    assigned_filename = sort_index(assigned_filename)
-    unassigned_filename = sort_index(unassigned_filename)
-    empty_filename = sort_index(empty_filename)
+    assigned_filename = sort_index_bam(assigned_filename)
+    unassigned_filename = sort_index_bam(unassigned_filename)
+    empty_filename = sort_index_bam(empty_filename)
     
     # remove intermediate files
     if remove:
