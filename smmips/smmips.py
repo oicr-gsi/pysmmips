@@ -237,7 +237,7 @@ def merge_chromosome_files(outdir, remove):
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.sorted.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i])
-        for i in F1 + F2 + L:
+        for i in F1 + F2 + L + [assigned_filename, unassigned_filename, empty_filename]:
             os.remove(i)
         
    
