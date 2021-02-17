@@ -286,119 +286,11 @@ def count_variants(bamfile, panel, outdir, max_depth, truncate, ignore_orphans,
     write_table_variants(Counts, outputfile, mutations)
 
 
-#def main():
-#    '''
-#    main function to run the smmips script
-#    '''
-#    
-#    # create main parser    
-#    parser = argparse.ArgumentParser(prog='smmip.py', description="A tool to analyse smMIP libraries")
-#    subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
-#       		
-#    
-#    # align reads
-#    al_parser = subparsers.add_parser('align', help='Align reads to reference genome')
-#    al_parser.add_argument('-f1', '--Fastq1', dest='fastq1', help = 'Path to Fastq1', required=True)
-#    al_parser.add_argument('-f2', '--Fastq2', dest='fastq2', help = 'Path to Fastq2', required=True)
-#    al_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-#    al_parser.add_argument('-r', '--Reference', dest='reference', help = 'Path to the reference genome', required=True)
-#    al_parser.add_argument('-bwa', '--Bwa', dest='bwa', help = 'Path to the bwa script', required=True)
-#    al_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
-#    al_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the output files', required=True)
-#    
-#    
-#    # assign smMips to reads
-#    a_parser = subparsers.add_parser('assign', help='Extract UMIs from reads and assign reads to smmips')
-#    a_parser.add_argument('-pa', '--Panel', dest='panel', help = 'Path to panel file with smmip information', required=True)
-#    a_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-#    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', default='all', help = 'Considers only the reads mapped to chromosome. Default is all chromosomes. Accepted values are "all", "chrA"')
-#    a_parser.add_argument('-b', '--BamFile', dest='sortedbam', help = 'Coordinate-sorted and indexed bam with all reads', required=True)
-#    a_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
-#    a_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the output files', required=True)
-#    a_parser.add_argument('-s', '--Subs', dest='max_subs', type=int, default=0, help = 'Maximum number of substitutions allowed in the probe sequence. Default is 0')
-#    a_parser.add_argument('-up', '--Upstream', dest='upstream_nucleotides', type=int, default=0, help = 'Maximum number of nucleotides upstream the UMI sequence. Default is 0')
-#    a_parser.add_argument('-umi', '--Umi', dest='umi_length', type=int, default=4, help = 'Length of the UMI sequence in bp. Default is 4')
-#    a_parser.add_argument('-m', '--Matches', dest='match', type=float, default=2, \
-#                          help = 'Score of identical characters during local alignment. Used only if report is True. Default is 2')
-#    a_parser.add_argument('-mm', '--Mismatches', dest='mismatch', type=float, default=-1, \
-#                          help = 'Score of non-identical characters during local alignment. Used only if report is True. Default is -1')
-#    a_parser.add_argument('-go', '--Gap_opening', dest='gap_opening', type=float, default=-5, \
-#                          help = 'Score for opening a gap during local alignment. Used only if report is True. Default is -5')
-#    a_parser.add_argument('-ge', '--Gap_extension', dest='gap_extension', type=float, default=-1, \
-#                          help = 'Score for extending an open gap during local alignment. Used only if report is True. Default is -1')
-#    a_parser.add_argument('-ao', '--Alignment_overlap', dest='alignment_overlap_threshold', type=int, default=60, \
-#                          help = 'Cut-off value for the length of the de-gapped overlap between read1 and read2. Default is 60bp')
-#    a_parser.add_argument('-mt', '--Matches_threshold', dest='matches_threshold', type=float, default=0.7, \
-#                          help = 'Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2. Used only if report is True. Default is 0.7')
-#    
-#    # merge chromosome-level files
-#    m_parser = subparsers.add_parser('merge', help='Merges all the chromosome-level stats and alignment files')
-#    m_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-#    m_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
-#    
-#    ## Variant counts command
-#    v_parser = subparsers.add_parser('variant', help='Write table with variant counts across target regions')
-#    v_parser.add_argument('-b', '--Bam', dest='bamfile', help = 'Path to the coordinate-sorted and indexed input bam with UMI and smmip tags', required=True)
-#    v_parser.add_argument('-p', '--Panel', dest='panel', help = 'Path to panel file with smmip information', required=True)
-#    v_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-#    v_parser.add_argument('-m', '--MaxDepth', dest='max_depth', default=1000000, type=int, help = 'Maximum read depth. Default is 1000000')
-#    v_parser.add_argument('-io', '--IgnoreOrphans', dest='ignore_orphans', action='store_true', help='Ignore orphans (paired reads that are not in a proper pair). Default is False, becomes True if used')
-#    v_parser.add_argument('-t', '--Truncate', dest='truncate', action='store_true', help='Only pileup columns in the exact region specificied are returned. Default is False, becomes True is used')
-#    v_parser.add_argument('-stp', '--Stepper', dest='stepper', choices=['all', 'nofilter'], default='nofilter',
-#                          help='Filter or include reads in the pileup. See pysam doc for behavior of the all or nofilter options. Default is nofilter')
-#    v_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the variant count table', required=True)
-#    v_parser.add_argument('-rf', '--Reference', dest='reference', type=str, choices=['37', '38'], help = 'Reference genome. Must be the same reference used in panel. Accepted values: 37 or 38', required=True)
-#    v_parser.add_argument('-c', '--Cosmic', dest='cosmicfile', help = 'Tab separated table of all COSMIC coding point mutations from targeted and genome wide screens', required=True)
-#    #v_parser.set_defaults(func=count_variants)
-#
-#    args = parser.parse_args()
-#
-#    if args.subparser_name == 'align':
-#        align_reads(args.outdir, args.fastq1, args.fastq2, args.reference, args.bwa, args.prefix, args.remove)
-#        
-##        try:
-##            align_reads(args.outdir, args.fastq1, args.fastq2, args.reference, args.bwa, args.prefix, args.remove)
-##        except AttributeError as e:
-##            print('#############\n')
-##            print('AttributeError: {0}\n'.format(e))
-##            print('#############\n\n')
-##            print(parser.format_help())
-#    elif args.subparser_name == 'assign':
-#        try:
-#            assign_smmips(args.outdir, args.sortedbam, args.prefix, args.chromosome, args.remove,
-#                          args.panel, args.upstream_nucleotides, args.umi_length, args.max_subs,
-#                          args.match, args.mismatch, args.gap_opening, args.gap_extension,
-#                          args.alignment_overlap_threshold, args.matches_threshold)
-#        except AttributeError as e:
-#            print('#############\n')
-#            print('AttributeError: {0}\n'.format(e))
-#            print('#############\n\n')
-#            print(parser.format_help())
-#    elif args.subparser_name == 'merge':
-#        try:
-#            merge_chromosome_files(args.outdir, args.remove)
-#        except AttributeError as e:
-#            print('#############\n')
-#            print('AttributeError: {0}\n'.format(e))
-#            print('#############\n\n')
-#            print(parser.format_help())
-#    elif args.subparser_name == 'variant':
-#        try:
-#            count_variants(args.bamfile, args.panel, args.outdir, args.max_depth, args.truncate, args.ignore_orphans,
-#                   args.stepper, args.prefix, args.reference, args.cosmicfile)
-#        except AttributeError as e:
-#            print('#############\n')
-#            print('AttributeError: {0}\n'.format(e))
-#            print('#############\n\n')
-#            print(parser.format_help())
-#    elif args.subparser_name is None:
-#        print(parser.format_help())
-
-
-
-
-if __name__ == '__main__':
-       
+def main():
+    '''
+    main function to run the smmips script
+    '''
+    
     # create main parser    
     parser = argparse.ArgumentParser(prog='smmip.py', description="A tool to analyse smMIP libraries")
     subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
@@ -457,8 +349,7 @@ if __name__ == '__main__':
     v_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the variant count table', required=True)
     v_parser.add_argument('-rf', '--Reference', dest='reference', type=str, choices=['37', '38'], help = 'Reference genome. Must be the same reference used in panel. Accepted values: 37 or 38', required=True)
     v_parser.add_argument('-c', '--Cosmic', dest='cosmicfile', help = 'Tab separated table of all COSMIC coding point mutations from targeted and genome wide screens', required=True)
-    #v_parser.set_defaults(func=count_variants)
-
+    
     args = parser.parse_args()
 
     if args.subparser_name == 'align':
