@@ -13,7 +13,6 @@ import itertools
 from Bio import pairwise2
 from Bio.pairwise2 import format_alignment
 import regex
-import time
 import gzip
 
 
@@ -139,10 +138,10 @@ def create_tree(outdir):
 
 def align_fastqs(fastq1, fastq2, reference, outdir, bwa, prefix, remove):
     '''
-    (str, str, str, str, str, str, str, bool) -> str
+    (str, str, str, str, str, str, str, bool) -> None
     
     Align fastq1 and fastq2 using bwa mem into coordinate-sorted and indexed bam
-    in the out directory in outdir and return the path of the sorted bam
+    in the out directory in outdir
     
     Parameters
     ----------
@@ -180,7 +179,6 @@ def align_fastqs(fastq1, fastq2, reference, outdir, bwa, prefix, remove):
         os.remove(samfile)
         os.remove(bamfile)        
     
-    return sortedbam
 
 
 def track_read(read, d):
@@ -531,18 +529,22 @@ def remove_bam_extension(bamfile):
     - bamfile (str): Path to bam file
     '''
     
-    if bamfile[-len('.sorted.bam'):] == '.sorted.bam':
-        return bamfile[: -len('.sorted.bam')]
-    elif bamfile[-len('.assigned_reads.bam'):] == '.assigned_reads.bam':
-        return bamfile[: -len('.assigned_reads.bam')]
-    elif bamfile[-len('.unassigned_reads.bam'):] == '.unassigned_reads.bam':
-        return bamfile[: -len('.unassigned_reads.bam')]
-    elif bamfile[-len('.empty_reads.bam'):] == '.empty_reads.bam':
-        return bamfile[: -len('.empty_reads.bam')]
-    elif bamfile[-len('.bam'):] == '.bam':
-        return bamfile[: -len('.bam')]
+    
+    if '.temp.' in bamfile:
+        return bamfile[:bamfile.rfind('.temp.')]
     else:
-        return bamfile
+        if bamfile[-len('.sorted.bam'):] == '.sorted.bam':
+            return bamfile[: -len('.sorted.bam')]
+        elif bamfile[-len('.assigned_reads.bam'):] == '.assigned_reads.bam':
+            return bamfile[: -len('.assigned_reads.bam')]
+        elif bamfile[-len('.unassigned_reads.bam'):] == '.unassigned_reads.bam':
+            return bamfile[: -len('.unassigned_reads.bam')]
+        elif bamfile[-len('.empty_reads.bam'):] == '.empty_reads.bam':
+            return bamfile[: -len('.empty_reads.bam')]
+        elif bamfile[-len('.bam'):] == '.bam':
+            return bamfile[: -len('.bam')]
+        else:
+            return bamfile
     
 
 
@@ -640,16 +642,15 @@ def sort_index_bam(filename, suffix):
     pysam.index(sorted_file)
 
 
-def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, remove_intermediate):
+def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, chromosome, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold):
     '''
-    (str, dict, int, int, int, float, float, float, float, float, float, bool) -> (dict, dict)
+    (str, pysam.AlignmentFile, pysam.AlignmentFile, pysam.AlignmentFile, str, dict, int, int, int, float, float, float, float, float, float, bool) -> (dict, dict)
     
     Return a tuple of dictionaries with read counts. The first dictionary counts
     total reads, assigned and unassigned reads as well as empty smmips.
     The second dictionary tracks the number of reads per smmip
     
-    Write assigned reads, assigned but empty smmips and unassigned reads to 3 
-    separate output bams, sorted on coordinates and indexed.
+    Write assigned reads, assigned but empty smmips and unassigned reads to 3 separate output bams
     Assigned reads are tagged with the smMip name and the extracted UMI sequence
         
     Pre-condition: bamfile is sorted on coordinates and indexed (a .bai exists in the same directory)
@@ -657,6 +658,13 @@ def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max
     Parameters
     ----------
     - bamfile (str): Path to the input bam sorted on coordinates
+    - assigned_file (pysam.AlignmentFile): Bam file opened to write assigned reads
+    - unassigned_file (pysam.AlignmentFile): Bam file opened to write unassigned reads
+    - empty_file (pysam.AlignmentFile): Bam file opened to write empty reads
+    - chromosome (str): Specifies the genomic region in the alignment file where reads are mapped 
+                        Valid values:
+                        - all: loop through all chromosomes in the bam
+                        - chrA: specific chromosome. Format must correspond to the chromosome format in the bam file
     - panel (dict): Panel information        
     - upstream_nucleotides (int): Maximum number of nucleotides upstream the UMI sequence
     - umi_length (int): Length of the UMI    
@@ -667,11 +675,8 @@ def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max
     - gap_extension (float or int): Score for extending an open gap
     - alignment_overlap_threshold (float or int): Cut-off value for the length of the de-gapped overlap between read1 and read2 
     - matches_threshold (float or int): Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2 
-    - remove_intermediate (bool): Remove intermediate bams if True
     '''
  
-    # record time spent for alignment and assignment
-    start_time = time.time()
     
     # count total, assigned and unassigned reads
     metrics = {'reads': 0, 'assigned': 0, 'not_assigned': 0, 'assigned_empty': 0, 'assigned_not_empty': 0}
@@ -680,21 +685,17 @@ def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max
             
     # create AlignmentFile object to read input bam
     infile = pysam.AlignmentFile(bamfile, 'rb')
-    # create a new file, use header from bamfile
-    assigned_filename = remove_bam_extension(bamfile) + '.assigned_reads.bam'
-    newfile = pysam.AlignmentFile(assigned_filename, 'wb', template=infile)
-    # open bams for writing unassigned reads. use header from bamfile
-    unassigned_filename = remove_bam_extension(bamfile) + '.unassigned_reads.bam'
-    unassigned_file = pysam.AlignmentFile(unassigned_filename, 'wb', template=infile)
-    # open bam for writing assigned but empty reads
-    empty_filename = remove_bam_extension(bamfile) + '.empty_reads.bam'
-    empty_file = pysam.AlignmentFile(empty_filename, 'wb', template=infile)
     
     # make a list of chromosomes in panel
     panel_chromosomes = [panel[i]['chr'] for i in panel]
     # make a list of chromosomes from the bam header
     header = get_bam_header(bamfile)
     bam_chromosomes = [i['SN'] for i in header['SQ']]
+    
+    # check that chromosome is in the bam header
+    # use all chromosomes 
+    if chromosome != 'all':
+        bam_chromosomes = [chromosome] if chromosome in bam_chromosomes else []
     
     # only look at reads expected to map on chromosomes in panel
     # discard reads mapping to other chromosomes
@@ -760,7 +761,7 @@ def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max
                                         smmip_counts[matching_smmip]['empty'] += 2
                                     else:
                                         # non empty reads. write to outputbam
-                                        record_read(metrics, 'assigned_not_empty', newfile, D[qname])
+                                        record_read(metrics, 'assigned_not_empty', assigned_file, D[qname])
                                         remove_read(D, qname)
                                         smmip_counts[matching_smmip]['not_empty'] += 2
             # discard reads without mate on chromosome
@@ -778,31 +779,14 @@ def assign_reads_to_smmips(bamfile, panel, upstream_nucleotides, umi_length, max
                     unassigned_file.write(query)
     # close bams    
     infile.close()
-    newfile.close()
-    unassigned_file.close()
-    empty_file.close()
-
-    # sort and index bams
-    sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
-    sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
-    sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
     
-    # remove intermediate files
-    if remove_intermediate:
-        os.remove(assigned_filename)
-        os.remove(unassigned_filename)
-        os.remove(empty_filename)
-        
     # update metrics dict
-    metrics.update({'percent_assigned': round(metrics['assigned'] / metrics['reads'] * 100, 4)})
-    metrics.update({'percent_not_assigned': round(metrics['not_assigned'] / metrics['reads'] * 100, 4)})
-    metrics.update({'percent_empty_smmips': round(metrics['assigned_empty'] / metrics['assigned'] * 100, 4)})
-    
-    end_time = time.time()
-    run_time = round(end_time - start_time, 3)
-    
-    metrics.update({'run_time': run_time})
-    print('assigned smMIPs in {0} seconds'.format(run_time))
+    assigned_ratio = round(metrics['assigned'] / metrics['reads'] * 100, 4) if metrics['reads'] != 0 else 0
+    unassigned_ratio = round(metrics['not_assigned'] / metrics['reads'] * 100, 4) if metrics['reads'] != 0 else 0
+    empty_ratio = round(metrics['assigned_empty'] / metrics['assigned'] * 100, 4) if metrics['assigned'] != 0 else 0
+    metrics.update({'percent_assigned': assigned_ratio})
+    metrics.update({'percent_not_assigned': unassigned_ratio})
+    metrics.update({'percent_empty_smmips': empty_ratio})
       
     return metrics, smmip_counts    
 
@@ -1298,3 +1282,70 @@ def write_table_variants(D, outputfile, cosmic):
     newfile.close()   
 
 
+def merge_stats(L):
+    '''
+    (list) -> D
+    
+    Returns a dictionary with read counts over all chromosomes
+    
+    Parameters
+    ----------
+    - L (list): List of dictionaries with read counts for each chromosome
+    '''
+    
+    # create a dict to count reads over all chromosomes
+    D = {"reads": 0, "assigned": 0, "not_assigned": 0, "assigned_empty": 0, "assigned_not_empty": 0}
+    
+    for i in L:
+        for j in D.keys():
+            D[j] += i[j]
+    
+    D['percent_assigned'] = round(D['assigned'] / D['reads'] * 100, 4) if D['reads'] != 0 else 0
+    D['percent_not_assigned'] = round(D['not_assigned'] / D['reads'] * 100, 4) if D['reads'] != 0 else 0
+    D['percent_empty_smmips'] = round(D['assigned_empty'] / D['assigned'] * 100, 4) if D['assigned'] != 0 else 0
+    
+    return D
+
+
+def merge_smmip_counts(L):
+    '''
+    (list) -> D
+
+    Returns a dictionary with read counts supporting empty and non-empty smmips
+    
+    Parameters
+    ----------
+    - L (list): List of dictionaries with empty and not_empty read counts for each smmip
+    '''
+    
+    # create a dict to record reads supporting empty and non-empty smmips for each smmip
+    D = {}
+    for i in L:
+        for smmip in i:
+            if smmip not in D:
+                D[smmip] = {'empty': 0, 'not_empty': 0}
+            D[smmip]['empty'] += i[smmip]['empty']    
+            D[smmip]['not_empty'] += i[smmip]['not_empty']
+    
+    return D
+
+    
+def merge_bams(outputfile, L):
+    '''
+    (str, list) -> None
+    
+    Merge the input bams in list L to outputfile
+    
+    Parameters
+    ----------
+    - outputfile (str): Path to the merged bam
+    - L (list): List of input bam bames
+    '''
+    
+    # merge bam files
+    args = ['-f', outputfile]
+    args.extend(L)
+    pysam.merge(*args)
+    
+    
+    
