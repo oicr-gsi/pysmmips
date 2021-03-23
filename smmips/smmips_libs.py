@@ -642,28 +642,9 @@ def sort_index_bam(filename, suffix):
     pysam.index(sorted_file)
 
 
-def get_chromosome_length(header):
+def get_positions(start, end, chromo_length):
     '''
-    (dict) -> dict
-    
-    Returns a dictionary of chromosome, length pairs for each chromosome in
-    the bam header
-    
-    Parameters
-    ----------
-    - header (dict): Dictionary representation of a bam header
-    '''
-        
-    chromo_length = {}
-    for i in header['SQ']:
-        chromo, length = i['SN'], i['LN']
-        chromo_length[chromo] = length
-    return chromo_length
-    
-
-def get_positions(start, end, chromo_length, contig):
-    '''
-    (int | None, int | None, dict, str) -> (int, int)
+    (int | None, int | None, int) -> (int, int)
     
     Returns a tuple with 0-based start and end positions of a contig region
     
@@ -671,8 +652,7 @@ def get_positions(start, end, chromo_length, contig):
     ----------
     - start (int or None): Start position if defined
     - end (int or None): End position if defined
-    - chromo_length (dict): Dictionary with the length of all chromosomes
-    - contig (str): Chromosome where region defined by start and end is located
+    - chromo_length (int): Length of the reference (chromosome)
     '''
     
     if start:
@@ -681,12 +661,12 @@ def get_positions(start, end, chromo_length, contig):
         start_pos = 0
     if end:
         # check if end position > chromosome length
-        if end > chromo_length[contig]:
-            end_pos = chromo_length[contig]
+        if end > chromo_length:
+            end_pos = chromo_length
         else:
             end_pos = end
     else:
-        end = chromo_length[contig]
+        end = chromo_length
     return start_pos, end_pos
 
 
@@ -728,8 +708,8 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
     
  
     
-    # count total, assigned and unassigned reads
-    metrics = {'reads': 0, 'assigned': 0, 'not_assigned': 0, 'assigned_empty': 0, 'assigned_not_empty': 0}
+    # count total reads in file, reads in region, assigned and unassigned reads
+    metrics = {'total': 0, 'reads': 0, 'assigned': 0, 'not_assigned': 0, 'assigned_empty': 0, 'assigned_not_empty': 0}
     # count smmips
     smmip_counts = {panel[i]['mip_name'] : {'empty':0, 'not_empty':0} for i in panel}
             
@@ -757,7 +737,8 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
         D = {}
         if contig in panel_chromosomes:
             # get the start and end positions of region of interest. include all contig if start and end are not defined
-            start_pos, end_pos = get_positions(start, end, chromo_length, contig)
+            chromo_length = infile.get_reference_length(contig)
+            start_pos, end_pos = get_positions(start, end, chromo_length)
             # loop over all reads mapping to contig
             for query in infile.fetch(contig=contig,start=start_pos, end=end_pos, until_eof=True):
                 qname = query.query_name
