@@ -45,9 +45,9 @@ def align_reads(outdir, fastq1, fastq2, reference, bwa, prefix, remove):
     align_fastqs(fastq1, fastq2, reference, outdir, bwa, prefix, remove)
 
 
-def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream_nucleotides,
+def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides,
                   umi_length, max_subs, match, mismatch, gap_opening, gap_extension,
-                  alignment_overlap_threshold, matches_threshold):
+                  alignment_overlap_threshold, matches_threshold, chromosome, start, end):
     '''
     (str, str, str, str, bool, str, int, int, int, float | int, float | int, float | int, float | int, float | int , float | int) -> None
     
