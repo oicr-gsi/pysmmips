@@ -722,9 +722,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
     header = get_bam_header(bamfile)
     bam_chromosomes = [i['SN'] for i in header['SQ']]
     
-    # get the length of chromosomes from the bam header
-    chromo_length = get_chromosome_length(header)
-        
     # use specific chromosome if defined 
     # check that chromosome is in the bam header
     if chromosome:
