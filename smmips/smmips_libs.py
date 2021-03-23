@@ -666,7 +666,7 @@ def get_positions(start, end, chromo_length):
         else:
             end_pos = end
     else:
-        end = chromo_length
+        end_pos = chromo_length
     return start_pos, end_pos
 
 
