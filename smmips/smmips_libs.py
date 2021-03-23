@@ -690,15 +690,15 @@ def get_positions(start, end, chromo_length, contig):
     return start_pos, end_pos
 
 
-def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end):
+def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end):
     '''
-    (str, pysam.AlignmentFile, pysam.AlignmentFile, pysam.AlignmentFile, dict, int, int, int, float, float, float, float, float, float, bool, str | None) -> (dict, dict)
+    (str, pysam.AlignmentFile, pysam.AlignmentFile, dict, int, int, int, float, float, float, float, float, float, bool, str | None) -> (dict, dict)
     
     Return a tuple of dictionaries with read counts. The first dictionary counts
     total reads, assigned and unassigned reads as well as empty smmips.
     The second dictionary tracks the number of reads per smmip
     
-    Write assigned reads, assigned but empty smmips and unassigned reads to 3 separate output bams
+    Write assigned reads, assigned but empty smmips to 2 separate output bams
     Assigned reads are tagged with the smMip name and the extracted UMI sequence
         
     Pre-condition: bamfile is sorted on coordinates and indexed (a .bai exists in the same directory)
@@ -707,7 +707,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     ----------
     - bamfile (str): Path to the input bam sorted on coordinates
     - assigned_file (pysam.AlignmentFile): Bam file opened to write assigned reads
-    - unassigned_file (pysam.AlignmentFile): Bam file opened to write unassigned reads
     - empty_file (pysam.AlignmentFile): Bam file opened to write empty reads
     - panel (dict): Panel information        
     - upstream_nucleotides (int): Maximum number of nucleotides upstream the UMI sequence
@@ -725,6 +724,8 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     - start (int | None): Start position of region on chromosome if defined
     - end (int | None): End position of region on chromosome if defined
     '''
+    
+    
  
     
     # count total, assigned and unassigned reads
@@ -766,8 +767,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
                     if query.is_unmapped == False:
                         # collect all reads with same query name in D until all are found
                         track_read(query, D)
-                    else:
-                        record_read(metrics, 'not_assigned', unassigned_file, [query])
                 if qname in D:
                     # process reads if paired reads have been found
                     if len(D[qname]) == 2:
@@ -779,7 +778,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
                         candidates = find_overlapping_candidates(contig, panel, template_start, template_end)
                         if len(candidates) == 0:
                             # no overlapping smmip. discard read
-                            record_read(metrics, 'not_assigned', unassigned_file, D[qname])
                             remove_read(D, qname)
                         else:
                             # get read sequences
@@ -789,7 +787,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
                             matching, umi_sequences = find_matching_smmip(candidates, panel, seq1, seq2, upstream_nucleotides, umi_length, max_subs)
                             if len(matching) == 0:
                                 # no matching probes. discard read
-                                record_read(metrics, 'not_assigned', unassigned_file, D[qname])
                                 remove_read(D, qname)
                             else:
                                 # get the name of matching smmip and corresponding umi
@@ -800,7 +797,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
                                 # check if smmip with matching is the same as smmip with greatest overlap
                                 if matching_smmip != overlapping_smmip:
                                     # conflict between pre-assigned smmip and overlapping smmip. discard read
-                                    record_read(metrics, 'not_assigned', unassigned_file, D[qname])
                                     remove_read(D, qname)
                                 else:
                                     # assign read. add tags
@@ -818,19 +814,12 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
                                         record_read(metrics, 'assigned_not_empty', assigned_file, D[qname])
                                         remove_read(D, qname)
                                         smmip_counts[matching_smmip]['not_empty'] += 2
-            # discard reads without mate on chromosome
-            if len(D) != 0:
-                for qname in D:
-                    record_read(metrics, 'not_assigned', unassigned_file, D[qname])
-                                            
         else:
             # discard all reads on chromosome
-            for query in infile.fetch(contig=contig, until_eof=True):
+            for query in infile.fetch(contig=contig, start=start_pos, end=end_pos, until_eof=True):
                 # ignore secondary and supplementary alignments
                 if query.is_secondary == False and query.is_supplementary == False:
                     metrics['reads'] += 1    
-                    metrics['not_assigned'] += 1
-                    unassigned_file.write(query)
     # close bams    
     infile.close()
     

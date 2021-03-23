@@ -103,47 +103,39 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
     if chromosome is None:
         # create a new file, use header from bamfile
         assigned_filename = remove_bam_extension(sortedbam) + '.assigned_reads.bam'
-        # open bams for writing unassigned reads. use header from bamfile
-        unassigned_filename = remove_bam_extension(sortedbam) + '.unassigned_reads.bam'
         # open bam for writing assigned but empty reads
         empty_filename = remove_bam_extension(sortedbam) + '.empty_reads.bam'
     else:
         # create a new file, use header from bamfile
         assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format(chromosome)
-        # open bams for writing unassigned reads. use header from bamfile
-        unassigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.unassigned_reads.bam'.format(chromosome)
         # open bam for writing assigned but empty reads
         empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format(chromosome)
     
     
     assigned_file = pysam.AlignmentFile(assigned_filename, 'wb', template=infile)
-    unassigned_file = pysam.AlignmentFile(unassigned_filename, 'wb', template=infile)
     empty_file = pysam.AlignmentFile(empty_filename, 'wb', template=infile)
     
     # close sortedbam
     infile.close()
     
     # assign reads to smmips
-    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, unassigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end)
+    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end)
     
     # close bams    
-    for i in [assigned_file, unassigned_file, empty_file]:
+    for i in [assigned_file, empty_file]:
         i.close()
         
     # sort and index bams
     if chromosome is None:
         sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
-        sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
         sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
     else:
         sort_index_bam(assigned_filename, '.temp.assigned_reads.sorted.bam')
-        sort_index_bam(unassigned_filename, '.temp.unassigned_reads.sorted.bam')
         sort_index_bam(empty_filename, '.temp.empty_reads.sorted.bam')
     
     # remove intermediate files
     if remove:
         os.remove(assigned_filename)
-        os.remove(unassigned_filename)
         os.remove(empty_filename)
     
     # record time after smmip assignment and update QC metrics
@@ -212,32 +204,26 @@ def merge_chromosome_files(outdir, remove):
     # merge bam files
     finalDir = os.path.join(outdir, 'out')
     assigned = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i and i[i.index('temp.assigned_reads.sorted.bam'):] == 'temp.assigned_reads.sorted.bam']
-    unassigned = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.sorted.bam' in i and i[i.index('temp.unassigned_reads.sorted.bam'):] == 'temp.unassigned_reads.sorted.bam']
     empty = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i and i[i.index('temp.empty_reads.sorted.bam'):] == 'temp.empty_reads.sorted.bam']
     
     assigned_filename = os.path.join(finalDir, prefix + '.assigned_reads.bam')
-    unassigned_filename = os.path.join(finalDir, prefix + '.unassigned_reads.bam')
     empty_filename = os.path.join(finalDir, prefix + '.empty_reads.bam')
     
     merge_bams(assigned_filename, assigned)
-    merge_bams(unassigned_filename, unassigned)
     merge_bams(empty_filename, empty)
     
     # sort and index merged bams
     sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
-    sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
     sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
     
     # remove intermediate files
     if remove:
         # make a list of intermediate files:
         L = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.bam' in i]
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i])
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.sorted.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i])
-        for i in F1 + F2 + L + [assigned_filename, unassigned_filename, empty_filename]:
+        for i in F1 + F2 + L + [assigned_filename, empty_filename]:
             os.remove(i)
         
    
