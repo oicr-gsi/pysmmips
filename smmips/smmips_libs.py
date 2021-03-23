@@ -642,7 +642,55 @@ def sort_index_bam(filename, suffix):
     pysam.index(sorted_file)
 
 
-def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome):
+def get_chromosome_length(header):
+    '''
+    (dict) -> dict
+    
+    Returns a dictionary of chromosome, length pairs for each chromosome in
+    the bam header
+    
+    Parameters
+    ----------
+    - header (dict): Dictionary representation of a bam header
+    '''
+        
+    chromo_length = {}
+    for i in header['SQ']:
+        chromo, length = i['SN'], i['LN']
+        chromo_length[chromo] = length
+    return chromo_length
+    
+
+def get_positions(start, end, chromo_length, contig):
+    '''
+    (int | None, int | None, dict, str) -> (int, int)
+    
+    Returns a tuple with 0-based start and end positions of a contig region
+    
+    Parameters
+    ----------
+    - start (int or None): Start position if defined
+    - end (int or None): End position if defined
+    - chromo_length (dict): Dictionary with the length of all chromosomes
+    - contig (str): Chromosome where region defined by start and end is located
+    '''
+    
+    if start:
+        start_pos = start
+    else:
+        start_pos = 0
+    if end:
+        # check if end position > chromosome length
+        if end > chromo_length[contig]:
+            end_pos = chromo_length[contig]
+        else:
+            end_pos = end
+    else:
+        end = chromo_length[contig]
+    return start_pos, end_pos
+
+
+def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end):
     '''
     (str, pysam.AlignmentFile, pysam.AlignmentFile, pysam.AlignmentFile, dict, int, int, int, float, float, float, float, float, float, bool, str | None) -> (dict, dict)
     
@@ -661,10 +709,6 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     - assigned_file (pysam.AlignmentFile): Bam file opened to write assigned reads
     - unassigned_file (pysam.AlignmentFile): Bam file opened to write unassigned reads
     - empty_file (pysam.AlignmentFile): Bam file opened to write empty reads
-    - chromosome (str | None): Specifies the genomic region in the alignment file where reads are mapped 
-                               Valid values:
-                               - None: loop through all chromosomes in the bam
-                               - chrA: specific chromosome. Format must correspond to the chromosome format in the bam file
     - panel (dict): Panel information        
     - upstream_nucleotides (int): Maximum number of nucleotides upstream the UMI sequence
     - umi_length (int): Length of the UMI    
@@ -675,6 +719,11 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     - gap_extension (float or int): Score for extending an open gap
     - alignment_overlap_threshold (float or int): Cut-off value for the length of the de-gapped overlap between read1 and read2 
     - matches_threshold (float or int): Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2 
+    - chromosome (str | None): Specifies the genomic region in the alignment file where reads are mapped.
+                               Examine reads on chromosome if used and on all chromosomes if None
+                               Chromosome format must match format in the bam header
+    - start (int | None): Start position of region on chromosome if defined
+    - end (int | None): End position of region on chromosome if defined
     '''
  
     
@@ -692,8 +741,11 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     header = get_bam_header(bamfile)
     bam_chromosomes = [i['SN'] for i in header['SQ']]
     
+    # get the length of chromosomes from the bam header
+    chromo_length = get_chromosome_length(header)
+        
+    # use specific chromosome if defined 
     # check that chromosome is in the bam header
-    # use all chromosomes 
     if chromosome:
         bam_chromosomes = [chromosome] if chromosome in bam_chromosomes else []
     
@@ -703,8 +755,10 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
         # create dictionary to keep track of read pairs 
         D = {}
         if contig in panel_chromosomes:
+            # get the start and end positions of region of interest. include all contig if start and end are not defined
+            start_pos, end_pos = get_positions(start, end, chromo_length, contig)
             # loop over all reads mapping to contig
-            for query in infile.fetch(contig=contig, until_eof=True):
+            for query in infile.fetch(contig=contig,start=start_pos, end=end_pos, until_eof=True):
                 qname = query.query_name
                 # ignore unmapped reads, secondary and supplementary alignments
                 if query.is_secondary == False and query.is_supplementary == False:

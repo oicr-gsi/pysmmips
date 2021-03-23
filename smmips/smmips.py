@@ -56,10 +56,6 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     - outdir (str): Path to directory where directory structure is created
     - sortedbam (str): Coordinate-sorted bam with all reads
     - prefix (str): Prefix used to name the output files
-    - chromosome (str): Specifies the genomic region in the alignment file where reads are mapped 
-                        Valid values:
-                        - all: loop through all chromosomes in the bam
-                        - chrA: specific chromosome. Format must correspond to the chromosome format in the bam file
     - remove (bool): Remove intermediate files if True                     
     - panel (str): Path to file with smmip information
     - upstream_nucleotides (int): Maximum number of nucleotides upstream the UMI sequence
@@ -71,7 +67,12 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     - gap_extension (float or int): Score for extending an open gap
     - alignment_overlap_threshold (float or int): Cut-off value for the length of the de-gapped overlap between read1 and read2 
     - matches_threshold (float or int): Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2 
- 
+    - chromosome (str | None): Specifies the genomic region in the alignment file where reads are mapped.
+                               Examine reads on chromosome if used and on all chromosomes if None
+                               Chromosome format must match format in the bam header
+    - start (int | None): Start position of region on chromosome if defined
+    - end (int | None): End position of region on chromosome if defined
+    
     Write assigned reads, assigned but empty smmips and unassigned
     reads to 3 separate output bams, coordinate-sorted and indexed.
     Assigned reads are tagged with the smMip name and the extracted UMI sequence.
@@ -123,7 +124,7 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     infile.close()
     
     # assign reads to smmips
-    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, unassigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome)
+    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, unassigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end)
     
     # close bams    
     for i in [assigned_file, unassigned_file, empty_file]:
@@ -310,11 +311,10 @@ def main():
     a_parser = subparsers.add_parser('assign', help='Extract UMIs from reads and assign reads to smmips')
     a_parser.add_argument('-pa', '--Panel', dest='panel', help = 'Path to panel file with smmip information', required=True)
     a_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', help = 'Considers only the reads mapped to chromosome. All chromosomes are used if omitted')
     a_parser.add_argument('-b', '--BamFile', dest='sortedbam', help = 'Coordinate-sorted and indexed bam with all reads', required=True)
     a_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
     a_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the output files', required=True)
-    a_parser.add_argument('-s', '--Subs', dest='max_subs', type=int, default=0, help = 'Maximum number of substitutions allowed in the probe sequence. Default is 0')
+    a_parser.add_argument('-ms', '--Subs', dest='max_subs', type=int, default=0, help = 'Maximum number of substitutions allowed in the probe sequence. Default is 0')
     a_parser.add_argument('-up', '--Upstream', dest='upstream_nucleotides', type=int, default=0, help = 'Maximum number of nucleotides upstream the UMI sequence. Default is 0')
     a_parser.add_argument('-umi', '--Umi', dest='umi_length', type=int, default=4, help = 'Length of the UMI sequence in bp. Default is 4')
     a_parser.add_argument('-m', '--Matches', dest='match', type=float, default=2, \
@@ -329,6 +329,9 @@ def main():
                           help = 'Cut-off value for the length of the de-gapped overlap between read1 and read2. Default is 60bp')
     a_parser.add_argument('-mt', '--Matches_threshold', dest='matches_threshold', type=float, default=0.7, \
                           help = 'Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2. Used only if report is True. Default is 0.7')
+    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', help = 'Considers only the reads mapped to chromosome. All chromosomes are used if omitted')
+    a_parser.add_argument('-s', '--Start', dest='start', help = 'Start position of region on chromosome. Start of chromosome if omitted')
+    a_parser.add_argument('-e', '--End', dest='start', help = 'End position of region on chromosome. End of chromosome if omitted')
     
     # merge chromosome-level files
     m_parser = subparsers.add_parser('merge', help='Merges all the chromosome-level stats and alignment files')
@@ -361,10 +364,10 @@ def main():
             print(parser.format_help())
     elif args.subparser_name == 'assign':
         try:
-            assign_smmips(args.outdir, args.sortedbam, args.prefix, args.chromosome, args.remove,
+            assign_smmips(args.outdir, args.sortedbam, args.prefix, args.remove,
                           args.panel, args.upstream_nucleotides, args.umi_length, args.max_subs,
                           args.match, args.mismatch, args.gap_opening, args.gap_extension,
-                          args.alignment_overlap_threshold, args.matches_threshold)
+                          args.alignment_overlap_threshold, args.matches_threshold, args.chromosome, args.start, args.end)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))
