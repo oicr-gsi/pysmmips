@@ -705,11 +705,18 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
     - end (int | None): End position of region on chromosome if defined
     '''
     
-    
- 
-    
     # count total reads in file, reads in region, assigned and unassigned reads
-    metrics = {'total': 0, 'reads': 0, 'assigned': 0, 'not_assigned': 0, 'assigned_empty': 0, 'assigned_not_empty': 0}
+    metrics = {'assigned': 0, 'assigned_empty': 0, 'assigned_not_empty': 0}
+    
+    # count the total number of reads in file, excluding unmapped reads, secondary and supplementary alignments
+    with pysam.AlignmentFile(bamfile, 'rb') as infile:
+        total_count = infile.count(until_eof=False, read_callback='all')
+    metrics['total'] = total_count  
+    # count the number of reads in region, ignoring unmapped reads, secondary and supplementary alignments 
+    with pysam.AlignmentFile(bamfile, 'rb') as infile:
+        read_count = infile.count(until_eof=False, read_callback='all')
+    metrics['reads'] = read_count
+        
     # count smmips
     smmip_counts = {panel[i]['mip_name'] : {'empty':0, 'not_empty':0} for i in panel}
             
@@ -737,14 +744,12 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
             chromo_length = infile.get_reference_length(contig)
             start_pos, end_pos = get_positions(start, end, chromo_length)
             # loop over all reads mapping to contig
-            for query in infile.fetch(contig=contig,start=start_pos, end=end_pos, until_eof=True):
+            for query in infile.fetch(contig=contig,start=start_pos, end=end_pos, until_eof=False):
                 qname = query.query_name
                 # ignore unmapped reads, secondary and supplementary alignments
-                if query.is_secondary == False and query.is_supplementary == False:
-                    metrics['reads'] += 1    
-                    if query.is_unmapped == False:
-                        # collect all reads with same query name in D until all are found
-                        track_read(query, D)
+                if query.is_secondary == False and query.is_supplementary == False and query.is_unmapped == False:
+                    # collect all reads with same query name in D until all are found
+                    track_read(query, D)
                 if qname in D:
                     # process reads if paired reads have been found
                     if len(D[qname]) == 2:
@@ -792,16 +797,12 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
                                         record_read(metrics, 'assigned_not_empty', assigned_file, D[qname])
                                         remove_read(D, qname)
                                         smmip_counts[matching_smmip]['not_empty'] += 2
-        else:
-            # discard all reads on chromosome
-            for query in infile.fetch(contig=contig, start=start_pos, end=end_pos, until_eof=True):
-                # ignore secondary and supplementary alignments
-                if query.is_secondary == False and query.is_supplementary == False:
-                    metrics['reads'] += 1    
     # close bams    
     infile.close()
     
     # update metrics dict
+    # unassigned reads are reads not assigned in the region of interest
+    metrics['not_assigned'] = metrics['reads'] - metrics['assigned']
     assigned_ratio = round(metrics['assigned'] / metrics['reads'] * 100, 4) if metrics['reads'] != 0 else 0
     unassigned_ratio = round(metrics['not_assigned'] / metrics['reads'] * 100, 4) if metrics['reads'] != 0 else 0
     empty_ratio = round(metrics['assigned_empty'] / metrics['assigned'] * 100, 4) if metrics['assigned'] != 0 else 0
