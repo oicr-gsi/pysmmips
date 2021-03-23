@@ -1316,12 +1316,19 @@ def merge_stats(L):
     '''
     
     # create a dict to count reads over all chromosomes
-    D = {"reads": 0, "assigned": 0, "not_assigned": 0, "assigned_empty": 0, "assigned_not_empty": 0}
+    D = {"reads": 0, "assigned": 0, "assigned_empty": 0, "assigned_not_empty": 0}
     
     for i in L:
         for j in D.keys():
             D[j] += i[j]
     
+    # compute unassigned read count
+    D["not_assigned"] = D['reads'] - D['assigned']
+    
+    # add total number of reads in file
+    D['total'] = L[0]['total']
+    
+    # add ratios
     D['percent_assigned'] = round(D['assigned'] / D['reads'] * 100, 4) if D['reads'] != 0 else 0
     D['percent_not_assigned'] = round(D['not_assigned'] / D['reads'] * 100, 4) if D['reads'] != 0 else 0
     D['percent_empty_smmips'] = round(D['assigned_empty'] / D['assigned'] * 100, 4) if D['assigned'] != 0 else 0
