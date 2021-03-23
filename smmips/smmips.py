@@ -119,6 +119,9 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
     infile.close()
     
     # assign reads to smmips
+    # start and end position parameters valid only if chromosome is defined
+    if chromosome is None:
+        start, end = None, None
     metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end)
     
     # close bams    
