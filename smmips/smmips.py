@@ -73,12 +73,10 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
     - start (int | None): Start position of region on chromosome if defined
     - end (int | None): End position of region on chromosome if defined
     
-    Write assigned reads, assigned but empty smmips and unassigned
-    reads to 3 separate output bams, coordinate-sorted and indexed.
+    Write assigned reads and empty smmips to 2 separate coordinate-sorted and indexed bams.
     Assigned reads are tagged with the smMip name and the extracted UMI sequence.
-    Also write 2 json files in outdir/stats for QC
-    with counts of total, assigned and unassigned read along with empty smmips,
-    and read count for each smmip in the panel
+    Also write 2 json files in outdir/stats for QC with counts of total, assigned
+    and unassigned read along with empty smmips, and read count for each smmip in the panel
     '''
     
     # record time spent smmip assignment
@@ -106,10 +104,12 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
         # open bam for writing assigned but empty reads
         empty_filename = remove_bam_extension(sortedbam) + '.empty_reads.bam'
     else:
+        start_pos = 'start' if start is None else str(start)
+        end_pos = 'end' if end is None else str(end)
         # create a new file, use header from bamfile
-        assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format(chromosome)
+        assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format('.'.join([chromosome, start_pos, end_pos]))
         # open bam for writing assigned but empty reads
-        empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format(chromosome)
+        empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format('.'.join([chromosome, start_pos, end_pos]))
     
     
     assigned_file = pysam.AlignmentFile(assigned_filename, 'wb', template=infile)
@@ -148,8 +148,10 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
         statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix))
         statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.json'.format(prefix))
     else:
-        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, chromosome))
-        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, chromosome))
+        start_pos = 'start' if start is None else str(start)
+        end_pos = 'end' if end is None else str(end)
+        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, '.'.join([chromosome, start_pos, end_pos])))
+        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, '.'.join([chromosome, start_pos, end_pos])))
     with open(statsfile1, 'w') as newfile:
         json.dump(metrics, newfile, indent=4)
     with open(statsfile2, 'w') as newfile:
