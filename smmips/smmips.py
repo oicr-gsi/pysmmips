@@ -99,7 +99,7 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     # create AlignmentFile object to read input bam
     infile = pysam.AlignmentFile(sortedbam, 'rb')
     # create AlignmentFile objects for writing reads
-    if chromosome == 'all':
+    if chromosome is None:
         # create a new file, use header from bamfile
         assigned_filename = remove_bam_extension(sortedbam) + '.assigned_reads.bam'
         # open bams for writing unassigned reads. use header from bamfile
@@ -113,6 +113,8 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
         unassigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.unassigned_reads.bam'.format(chromosome)
         # open bam for writing assigned but empty reads
         empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format(chromosome)
+    
+    
     assigned_file = pysam.AlignmentFile(assigned_filename, 'wb', template=infile)
     unassigned_file = pysam.AlignmentFile(unassigned_filename, 'wb', template=infile)
     empty_file = pysam.AlignmentFile(empty_filename, 'wb', template=infile)
@@ -121,14 +123,14 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     infile.close()
     
     # assign reads to smmips
-    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, unassigned_file, empty_file, chromosome, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold)
+    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, unassigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome)
     
     # close bams    
     for i in [assigned_file, unassigned_file, empty_file]:
         i.close()
         
     # sort and index bams
-    if chromosome == 'all':
+    if chromosome is None:
         sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
         sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
         sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
@@ -149,7 +151,7 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     metrics.update({'run_time': run_time})
     
     # write json to files
-    if chromosome == 'all':
+    if chromosome is None:
         statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix))
         statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.json'.format(prefix))
     else:
@@ -308,7 +310,7 @@ def main():
     a_parser = subparsers.add_parser('assign', help='Extract UMIs from reads and assign reads to smmips')
     a_parser.add_argument('-pa', '--Panel', dest='panel', help = 'Path to panel file with smmip information', required=True)
     a_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', default='all', help = 'Considers only the reads mapped to chromosome. Default is all chromosomes. Accepted values are "all", "chrA"')
+    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', help = 'Considers only the reads mapped to chromosome. All chromosomes are used if omitted')
     a_parser.add_argument('-b', '--BamFile', dest='sortedbam', help = 'Coordinate-sorted and indexed bam with all reads', required=True)
     a_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
     a_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the output files', required=True)

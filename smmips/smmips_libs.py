@@ -642,9 +642,9 @@ def sort_index_bam(filename, suffix):
     pysam.index(sorted_file)
 
 
-def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, chromosome, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold):
+def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome):
     '''
-    (str, pysam.AlignmentFile, pysam.AlignmentFile, pysam.AlignmentFile, str, dict, int, int, int, float, float, float, float, float, float, bool) -> (dict, dict)
+    (str, pysam.AlignmentFile, pysam.AlignmentFile, pysam.AlignmentFile, dict, int, int, int, float, float, float, float, float, float, bool, str | None) -> (dict, dict)
     
     Return a tuple of dictionaries with read counts. The first dictionary counts
     total reads, assigned and unassigned reads as well as empty smmips.
@@ -661,10 +661,10 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     - assigned_file (pysam.AlignmentFile): Bam file opened to write assigned reads
     - unassigned_file (pysam.AlignmentFile): Bam file opened to write unassigned reads
     - empty_file (pysam.AlignmentFile): Bam file opened to write empty reads
-    - chromosome (str): Specifies the genomic region in the alignment file where reads are mapped 
-                        Valid values:
-                        - all: loop through all chromosomes in the bam
-                        - chrA: specific chromosome. Format must correspond to the chromosome format in the bam file
+    - chromosome (str | None): Specifies the genomic region in the alignment file where reads are mapped 
+                               Valid values:
+                               - None: loop through all chromosomes in the bam
+                               - chrA: specific chromosome. Format must correspond to the chromosome format in the bam file
     - panel (dict): Panel information        
     - upstream_nucleotides (int): Maximum number of nucleotides upstream the UMI sequence
     - umi_length (int): Length of the UMI    
@@ -694,7 +694,7 @@ def assign_reads_to_smmips(bamfile, assigned_file, unassigned_file, empty_file, 
     
     # check that chromosome is in the bam header
     # use all chromosomes 
-    if chromosome != 'all':
+    if chromosome:
         bam_chromosomes = [chromosome] if chromosome in bam_chromosomes else []
     
     # only look at reads expected to map on chromosomes in panel
