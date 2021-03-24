@@ -344,9 +344,21 @@ def compute_overlap(template_start, template_end, target_start, target_end):
                              Refers to position 1 nucleotide after the last nucleotide of the target 
     '''
     
-    overlap = len(set(range(template_start, template_end)).intersection(set(range(target_start, target_end))))
+    overlap = 0
+    if target_start > template_end or template_start > target_end:
+        overlap = 0
+    elif template_start <= target_start <= template_end:
+        if target_end >= template_end:
+            overlap = template_end - target_start
+        else:
+            overlap = target_end - target_start
+    elif target_start <= template_start <= target_end:
+        if template_end >= target_end:
+            overlap = target_end - template_start
+        else:
+            overlap = template_end - template_start
     return overlap
-
+    
 
 def find_overlapping_candidates(chromo, panel, template_start, template_end):
     '''
