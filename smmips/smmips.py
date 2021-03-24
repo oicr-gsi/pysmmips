@@ -231,7 +231,7 @@ def merge_chromosome_files(outdir, remove):
         for i in F1 + F2 + L + [assigned_filename, empty_filename]:
             os.remove(i)
         
-   
+# this function generates a table with nucleotide counts. not currently being used. 
 def count_variants(bamfile, panel, outdir, max_depth, truncate, ignore_orphans,
                    stepper, prefix, reference, cosmicfile):
     '''
@@ -283,7 +283,7 @@ def main():
     '''
     
     # create main parser    
-    parser = argparse.ArgumentParser(prog='smmip.py', description="A tool to analyse smMIP libraries")
+    parser = argparse.ArgumentParser(prog='smmip.py', description="A tool to generate QC metrics for smMIP libraries")
     subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
        		
     
@@ -329,20 +329,6 @@ def main():
     m_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
     m_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
     
-    ## Variant counts command
-    v_parser = subparsers.add_parser('variant', help='Write table with variant counts across target regions')
-    v_parser.add_argument('-b', '--Bam', dest='bamfile', help = 'Path to the coordinate-sorted and indexed input bam with UMI and smmip tags', required=True)
-    v_parser.add_argument('-p', '--Panel', dest='panel', help = 'Path to panel file with smmip information', required=True)
-    v_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-    v_parser.add_argument('-m', '--MaxDepth', dest='max_depth', default=1000000, type=int, help = 'Maximum read depth. Default is 1000000')
-    v_parser.add_argument('-io', '--IgnoreOrphans', dest='ignore_orphans', action='store_true', help='Ignore orphans (paired reads that are not in a proper pair). Default is False, becomes True if used')
-    v_parser.add_argument('-t', '--Truncate', dest='truncate', action='store_true', help='Only pileup columns in the exact region specificied are returned. Default is False, becomes True is used')
-    v_parser.add_argument('-stp', '--Stepper', dest='stepper', choices=['all', 'nofilter'], default='nofilter',
-                          help='Filter or include reads in the pileup. See pysam doc for behavior of the all or nofilter options. Default is nofilter')
-    v_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the variant count table', required=True)
-    v_parser.add_argument('-rf', '--Reference', dest='reference', type=str, choices=['37', '38'], help = 'Reference genome. Must be the same reference used in panel. Accepted values: 37 or 38', required=True)
-    v_parser.add_argument('-c', '--Cosmic', dest='cosmicfile', help = 'Tab separated table of all COSMIC coding point mutations from targeted and genome wide screens', required=True)
-    
     args = parser.parse_args()
 
     if args.subparser_name == 'align':
@@ -367,15 +353,6 @@ def main():
     elif args.subparser_name == 'merge':
         try:
             merge_chromosome_files(args.outdir, args.remove)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
-    elif args.subparser_name == 'variant':
-        try:
-            count_variants(args.bamfile, args.panel, args.outdir, args.max_depth, args.truncate, args.ignore_orphans,
-                   args.stepper, args.prefix, args.reference, args.cosmicfile)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))

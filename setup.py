@@ -10,7 +10,7 @@ setup(
 	version = '1.0.3',
 	author = "Richard Jovelin",
 	author_email = "richard.jovelin@oicr.on.ca",
-	description = ("A package to analyse smMIP libraries"),
+	description = ("A package to generate QC metrics for smMIP libraries"),
 	license = "MIT License",
 	keywords = "computational genomics",
 	url = "https://github.com/oicr-gsi/pysmmips",
