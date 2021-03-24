@@ -45,9 +45,9 @@ def align_reads(outdir, fastq1, fastq2, reference, bwa, prefix, remove):
     align_fastqs(fastq1, fastq2, reference, outdir, bwa, prefix, remove)
 
 
-def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream_nucleotides,
+def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides,
                   umi_length, max_subs, match, mismatch, gap_opening, gap_extension,
-                  alignment_overlap_threshold, matches_threshold):
+                  alignment_overlap_threshold, matches_threshold, chromosome, start, end):
     '''
     (str, str, str, str, bool, str, int, int, int, float | int, float | int, float | int, float | int, float | int , float | int) -> None
     
@@ -56,10 +56,6 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     - outdir (str): Path to directory where directory structure is created
     - sortedbam (str): Coordinate-sorted bam with all reads
     - prefix (str): Prefix used to name the output files
-    - chromosome (str): Specifies the genomic region in the alignment file where reads are mapped 
-                        Valid values:
-                        - all: loop through all chromosomes in the bam
-                        - chrA: specific chromosome. Format must correspond to the chromosome format in the bam file
     - remove (bool): Remove intermediate files if True                     
     - panel (str): Path to file with smmip information
     - upstream_nucleotides (int): Maximum number of nucleotides upstream the UMI sequence
@@ -71,13 +67,16 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     - gap_extension (float or int): Score for extending an open gap
     - alignment_overlap_threshold (float or int): Cut-off value for the length of the de-gapped overlap between read1 and read2 
     - matches_threshold (float or int): Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2 
- 
-    Write assigned reads, assigned but empty smmips and unassigned
-    reads to 3 separate output bams, coordinate-sorted and indexed.
+    - chromosome (str | None): Specifies the genomic region in the alignment file where reads are mapped.
+                               Examine reads on chromosome if used and on all chromosomes if None
+                               Chromosome format must match format in the bam header
+    - start (int | None): Start position of region on chromosome if defined
+    - end (int | None): End position of region on chromosome if defined
+    
+    Write assigned reads and empty smmips to 2 separate coordinate-sorted and indexed bams.
     Assigned reads are tagged with the smMip name and the extracted UMI sequence.
-    Also write 2 json files in outdir/stats for QC
-    with counts of total, assigned and unassigned read along with empty smmips,
-    and read count for each smmip in the panel
+    Also write 2 json files in outdir/stats for QC with counts of total, assigned
+    and unassigned read along with empty smmips, and read count for each smmip in the panel
     '''
     
     # record time spent smmip assignment
@@ -99,48 +98,47 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     # create AlignmentFile object to read input bam
     infile = pysam.AlignmentFile(sortedbam, 'rb')
     # create AlignmentFile objects for writing reads
-    if chromosome == 'all':
+    if chromosome is None:
         # create a new file, use header from bamfile
         assigned_filename = remove_bam_extension(sortedbam) + '.assigned_reads.bam'
-        # open bams for writing unassigned reads. use header from bamfile
-        unassigned_filename = remove_bam_extension(sortedbam) + '.unassigned_reads.bam'
         # open bam for writing assigned but empty reads
         empty_filename = remove_bam_extension(sortedbam) + '.empty_reads.bam'
     else:
+        start_pos = 'start' if start is None else str(start)
+        end_pos = 'end' if end is None else str(end)
         # create a new file, use header from bamfile
-        assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format(chromosome)
-        # open bams for writing unassigned reads. use header from bamfile
-        unassigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.unassigned_reads.bam'.format(chromosome)
+        assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format('.'.join([chromosome, start_pos, end_pos]))
         # open bam for writing assigned but empty reads
-        empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format(chromosome)
+        empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format('.'.join([chromosome, start_pos, end_pos]))
+    
+    
     assigned_file = pysam.AlignmentFile(assigned_filename, 'wb', template=infile)
-    unassigned_file = pysam.AlignmentFile(unassigned_filename, 'wb', template=infile)
     empty_file = pysam.AlignmentFile(empty_filename, 'wb', template=infile)
     
     # close sortedbam
     infile.close()
     
     # assign reads to smmips
-    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, unassigned_file, empty_file, chromosome, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold)
+    # start and end position parameters valid only if chromosome is defined
+    if chromosome is None:
+        start, end = None, None
+    metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end)
     
     # close bams    
-    for i in [assigned_file, unassigned_file, empty_file]:
+    for i in [assigned_file, empty_file]:
         i.close()
         
     # sort and index bams
-    if chromosome == 'all':
+    if chromosome is None:
         sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
-        sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
         sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
     else:
         sort_index_bam(assigned_filename, '.temp.assigned_reads.sorted.bam')
-        sort_index_bam(unassigned_filename, '.temp.unassigned_reads.sorted.bam')
         sort_index_bam(empty_filename, '.temp.empty_reads.sorted.bam')
     
     # remove intermediate files
     if remove:
         os.remove(assigned_filename)
-        os.remove(unassigned_filename)
         os.remove(empty_filename)
     
     # record time after smmip assignment and update QC metrics
@@ -149,12 +147,14 @@ def assign_smmips(outdir, sortedbam, prefix, chromosome, remove, panel, upstream
     metrics.update({'run_time': run_time})
     
     # write json to files
-    if chromosome == 'all':
+    if chromosome is None:
         statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix))
         statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.json'.format(prefix))
     else:
-        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, chromosome))
-        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, chromosome))
+        start_pos = 'start' if start is None else str(start)
+        end_pos = 'end' if end is None else str(end)
+        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, '.'.join([chromosome, start_pos, end_pos])))
+        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, '.'.join([chromosome, start_pos, end_pos])))
     with open(statsfile1, 'w') as newfile:
         json.dump(metrics, newfile, indent=4)
     with open(statsfile2, 'w') as newfile:
@@ -209,32 +209,26 @@ def merge_chromosome_files(outdir, remove):
     # merge bam files
     finalDir = os.path.join(outdir, 'out')
     assigned = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i and i[i.index('temp.assigned_reads.sorted.bam'):] == 'temp.assigned_reads.sorted.bam']
-    unassigned = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.sorted.bam' in i and i[i.index('temp.unassigned_reads.sorted.bam'):] == 'temp.unassigned_reads.sorted.bam']
     empty = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i and i[i.index('temp.empty_reads.sorted.bam'):] == 'temp.empty_reads.sorted.bam']
     
     assigned_filename = os.path.join(finalDir, prefix + '.assigned_reads.bam')
-    unassigned_filename = os.path.join(finalDir, prefix + '.unassigned_reads.bam')
     empty_filename = os.path.join(finalDir, prefix + '.empty_reads.bam')
     
     merge_bams(assigned_filename, assigned)
-    merge_bams(unassigned_filename, unassigned)
     merge_bams(empty_filename, empty)
     
     # sort and index merged bams
     sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
-    sort_index_bam(unassigned_filename, '.unassigned_reads.sorted.bam')
     sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
     
     # remove intermediate files
     if remove:
         # make a list of intermediate files:
         L = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.bam' in i]
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i])
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.unassigned_reads.sorted.bam' in i])
         L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i])
-        for i in F1 + F2 + L + [assigned_filename, unassigned_filename, empty_filename]:
+        for i in F1 + F2 + L + [assigned_filename, empty_filename]:
             os.remove(i)
         
    
@@ -308,11 +302,10 @@ def main():
     a_parser = subparsers.add_parser('assign', help='Extract UMIs from reads and assign reads to smmips')
     a_parser.add_argument('-pa', '--Panel', dest='panel', help = 'Path to panel file with smmip information', required=True)
     a_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
-    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', default='all', help = 'Considers only the reads mapped to chromosome. Default is all chromosomes. Accepted values are "all", "chrA"')
     a_parser.add_argument('-b', '--BamFile', dest='sortedbam', help = 'Coordinate-sorted and indexed bam with all reads', required=True)
     a_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
     a_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the output files', required=True)
-    a_parser.add_argument('-s', '--Subs', dest='max_subs', type=int, default=0, help = 'Maximum number of substitutions allowed in the probe sequence. Default is 0')
+    a_parser.add_argument('-ms', '--Subs', dest='max_subs', type=int, default=0, help = 'Maximum number of substitutions allowed in the probe sequence. Default is 0')
     a_parser.add_argument('-up', '--Upstream', dest='upstream_nucleotides', type=int, default=0, help = 'Maximum number of nucleotides upstream the UMI sequence. Default is 0')
     a_parser.add_argument('-umi', '--Umi', dest='umi_length', type=int, default=4, help = 'Length of the UMI sequence in bp. Default is 4')
     a_parser.add_argument('-m', '--Matches', dest='match', type=float, default=2, \
@@ -327,6 +320,9 @@ def main():
                           help = 'Cut-off value for the length of the de-gapped overlap between read1 and read2. Default is 60bp')
     a_parser.add_argument('-mt', '--Matches_threshold', dest='matches_threshold', type=float, default=0.7, \
                           help = 'Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2. Used only if report is True. Default is 0.7')
+    a_parser.add_argument('-c', '--Chromosome', dest='chromosome', help = 'Considers only the reads mapped to chromosome. All chromosomes are used if omitted')
+    a_parser.add_argument('-s', '--Start', dest='start', help = 'Start position of region on chromosome. Start of chromosome if omitted')
+    a_parser.add_argument('-e', '--End', dest='start', help = 'End position of region on chromosome. End of chromosome if omitted')
     
     # merge chromosome-level files
     m_parser = subparsers.add_parser('merge', help='Merges all the chromosome-level stats and alignment files')
@@ -359,10 +355,10 @@ def main():
             print(parser.format_help())
     elif args.subparser_name == 'assign':
         try:
-            assign_smmips(args.outdir, args.sortedbam, args.prefix, args.chromosome, args.remove,
+            assign_smmips(args.outdir, args.sortedbam, args.prefix, args.remove,
                           args.panel, args.upstream_nucleotides, args.umi_length, args.max_subs,
                           args.match, args.mismatch, args.gap_opening, args.gap_extension,
-                          args.alignment_overlap_threshold, args.matches_threshold)
+                          args.alignment_overlap_threshold, args.matches_threshold, args.chromosome, args.start, args.end)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))

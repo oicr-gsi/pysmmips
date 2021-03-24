@@ -7,7 +7,7 @@ with open("README.md") as infile:
 
 setup(
 	name = "smmips",
-	version = '1.0.2',
+	version = '1.0.3',
 	author = "Richard Jovelin",
 	author_email = "richard.jovelin@oicr.on.ca",
 	description = ("A package to analyse smMIP libraries"),
