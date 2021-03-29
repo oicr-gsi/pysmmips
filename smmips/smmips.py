@@ -47,9 +47,9 @@ def align_reads(outdir, fastq1, fastq2, reference, bwa, prefix, remove):
 
 def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides,
                   umi_length, max_subs, match, mismatch, gap_opening, gap_extension,
-                  alignment_overlap_threshold, matches_threshold, chromosome, start, end):
+                  alignment_overlap_threshold, matches_threshold, chromosome, start, end, region):
     '''
-    (str, str, str, str, bool, str, int, int, int, float | int, float | int, float | int, float | int, float | int , float | int) -> None
+    (str, str, str, str, bool, str, int, int, int, float | int, float | int, float | int, float | int, float | int , float | int, str | None) -> None
     
     Parameters
     ----------
@@ -72,12 +72,27 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
                                Chromosome format must match format in the bam header
     - start (int | None): Start position of region on chromosome if defined
     - end (int | None): End position of region on chromosome if defined
+    - region (str | None): Chromosomal region "chrN,start,end". Comma-separated string with chromosome, start and end. 
+                           Overrides chromosome, start and end parameters if used.
+                           Chromosome, start and end must be defined if region is used
     
     Write assigned reads and empty smmips to 2 separate coordinate-sorted and indexed bams.
     Assigned reads are tagged with the smMip name and the extracted UMI sequence.
     Also write 2 json files in outdir/stats for QC with counts of total, assigned
     and unassigned read along with empty smmips, and read count for each smmip in the panel
     '''
+
+
+
+    # check if region is provided
+    if region:
+        chromosome, start, end  = region.split(',')
+     
+    # check that start and end are defined
+    if start is not None:
+        start = int(start)
+    if end is not None:
+        end = int(end)
     
     # record time spent smmip assignment
     start_time = time.time()
@@ -323,6 +338,7 @@ def main():
     a_parser.add_argument('-c', '--Chromosome', dest='chromosome', help = 'Considers only the reads mapped to chromosome. All chromosomes are used if omitted')
     a_parser.add_argument('-s', '--Start', dest='start', help = 'Start position of region on chromosome. Start of chromosome if omitted')
     a_parser.add_argument('-e', '--End', dest='start', help = 'End position of region on chromosome. End of chromosome if omitted')
+    a_parser.add_argument('-r', '--Region', dest='region', help = 'Chromosomal region "chrN,start,end". Must follow this format and overrides chromosome, start and end parameters')
     
     # merge chromosome-level files
     m_parser = subparsers.add_parser('merge', help='Merges all the chromosome-level stats and alignment files')
@@ -344,7 +360,7 @@ def main():
             assign_smmips(args.outdir, args.sortedbam, args.prefix, args.remove,
                           args.panel, args.upstream_nucleotides, args.umi_length, args.max_subs,
                           args.match, args.mismatch, args.gap_opening, args.gap_extension,
-                          args.alignment_overlap_threshold, args.matches_threshold, args.chromosome, args.start, args.end)
+                          args.alignment_overlap_threshold, args.matches_threshold, args.chromosome, args.start, args.end, args.region)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))
