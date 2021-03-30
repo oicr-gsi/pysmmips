@@ -72,7 +72,7 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
                                Chromosome format must match format in the bam header
     - start (int | None): Start position of region on chromosome if defined
     - end (int | None): End position of region on chromosome if defined
-    - region (str | None): Chromosomal region "chrN,start,end". Comma-separated string with chromosome, start and end. 
+    - region (str | None): Chromosomal region "chrN.start.end". Dot-separated string with chromosome, start and end. 
                            Overrides chromosome, start and end parameters if used.
                            Chromosome, start and end must be defined if region is used
     
@@ -82,17 +82,17 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
     and unassigned read along with empty smmips, and read count for each smmip in the panel
     '''
 
-
-
-    # check if region is provided
+    # define genomic coordinates
+    if chromosome is None:
+        start, end = None, None
     if region:
-        chromosome, start, end  = region.split(',')
-     
-    # check that start and end are defined
-    if start is not None:
-        start = int(start)
-    if end is not None:
-        end = int(end)
+        chromosome, start, end  = region.split('.')
+    start = int(start) if start is not None else start
+    end = int(end) if end is not None else end
+    start_pos = 'start' if start is None else str(start)
+    end_pos = 'end' if end is None else str(end)
+    if chromosome:
+        genomic_region = '.'.join([chromosome, start_pos, end_pos])
     
     # record time spent smmip assignment
     start_time = time.time()
@@ -119,12 +119,10 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
         # open bam for writing assigned but empty reads
         empty_filename = remove_bam_extension(sortedbam) + '.empty_reads.bam'
     else:
-        start_pos = 'start' if start is None else str(start)
-        end_pos = 'end' if end is None else str(end)
         # create a new file, use header from bamfile
-        assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format('.'.join([chromosome, start_pos, end_pos]))
+        assigned_filename = remove_bam_extension(sortedbam) + '.{0}.temp.assigned_reads.bam'.format(genomic_region)
         # open bam for writing assigned but empty reads
-        empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format('.'.join([chromosome, start_pos, end_pos]))
+        empty_filename = remove_bam_extension(sortedbam) + '.{0}.temp.empty_reads.bam'.format(genomic_region)
     
     
     assigned_file = pysam.AlignmentFile(assigned_filename, 'wb', template=infile)
@@ -134,9 +132,6 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
     infile.close()
     
     # assign reads to smmips
-    # start and end position parameters valid only if chromosome is defined
-    if chromosome is None:
-        start, end = None, None
     metrics, smmip_counts = assign_reads_to_smmips(sortedbam, assigned_file, empty_file, read_panel(panel), upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end)
     
     # close bams    
@@ -166,10 +161,8 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
         statsfile1 = os.path.join(statsdir, '{0}_extraction_metrics.json'.format(prefix))
         statsfile2 = os.path.join(statsdir, '{0}_smmip_counts.json'.format(prefix))
     else:
-        start_pos = 'start' if start is None else str(start)
-        end_pos = 'end' if end is None else str(end)
-        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, '.'.join([chromosome, start_pos, end_pos])))
-        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, '.'.join([chromosome, start_pos, end_pos])))
+        statsfile1 = os.path.join(statsdir, '{0}_temp.{1}.extraction_metrics.json'.format(prefix, genomic_region))
+        statsfile2 = os.path.join(statsdir, '{0}_temp.{1}.smmip_counts.json'.format(prefix, genomic_region))
     with open(statsfile1, 'w') as newfile:
         json.dump(metrics, newfile, indent=4)
     with open(statsfile2, 'w') as newfile:
