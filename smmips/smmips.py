@@ -330,8 +330,8 @@ def main():
                           help = 'Cut-off value for the number of matching positions within the de-gapped overlap between read1 and read2. Used only if report is True. Default is 0.7')
     a_parser.add_argument('-c', '--Chromosome', dest='chromosome', help = 'Considers only the reads mapped to chromosome. All chromosomes are used if omitted')
     a_parser.add_argument('-s', '--Start', dest='start', help = 'Start position of region on chromosome. Start of chromosome if omitted')
-    a_parser.add_argument('-e', '--End', dest='start', help = 'End position of region on chromosome. End of chromosome if omitted')
-    a_parser.add_argument('-r', '--Region', dest='region', help = 'Chromosomal region "chrN,start,end". Must follow this format and overrides chromosome, start and end parameters')
+    a_parser.add_argument('-e', '--End', dest='end', help = 'End position of region on chromosome. End of chromosome if omitted')
+    a_parser.add_argument('-r', '--Region', dest='region', help = 'Chromosomal region "chrN.start.end". Must follow this format and overrides chromosome, start and end parameters')
     
     # merge chromosome-level files
     m_parser = subparsers.add_parser('merge', help='Merges all the chromosome-level stats and alignment files')
