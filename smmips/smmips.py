@@ -169,78 +169,71 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
         json.dump(smmip_counts, newfile, indent=4)
    
 
-def merge_chromosome_files(outdir, remove):
+def merge_files(prefix, files, file_type, remove):
     '''
-    (str, bool) -> None
+    (str, list, str, bool) -> None
 
-    Merges all the stats files and the alignment files for each chromosome into
-    single stats files and a single bam. The bam is indexed and coordinate-sorted
-    
+    Merges the files in L into a single stats file or a single bam.
+    The output bam is indexed and coordinate-sorted
+    Precondition: All files must be the same type of files and file_type is part of the file name
+        
     Parameters
     ----------
-    - outdir (str): Path to directory where directory structure is created
-    - remove (bool): Remove intermediate files if True                     
+    - prefix (str): Prefix used to name the output files
+    - files (list): List of stats files or bams to be merged      
+    - file_type (str): Type of the files to be merged. Valid options:
+                       - "assigned": merges bams with assigned non-empty smmips
+                       - "empty": merges bams with empty smmips
+                       - "counts": merges stats files with smmip counts
+                       - "extraction": merges stats files with extraction metrics
+    - remove (bool): Remove intermediate files if True   
     '''
     
-    # merge stats files
-    statsDir = os.path.join(outdir, 'stats')
+    F = [i for i in files if file_type in i]
     
-    # merge smmips counts
-    F1 = [os.path.join(statsDir, i) for i in os.listdir(statsDir) if 'temp' in i and 'smmip_counts.json' in i]
-    L1 = []
-    for i in F1:
-        infile = open(i)
-        L1.append(json.load(infile))
-        infile.close()
-    smmip_counts = merge_smmip_counts(L1)
-
-    # merge read counts
-    F2 = [os.path.join(statsDir, i) for i in os.listdir(statsDir) if 'temp' in i and 'extraction_metrics.json' in i]
-    L2= []
-    for i in F2:
-        infile = open(i)
-        L2.append(json.load(infile))
-        infile.close()
-    read_counts = merge_stats(L2)
-
-    # get prefix name
-    prefix = os.path.basename(F2[0][:F2[0].index('_temp')])
-    
-    statsfile1 = os.path.join(statsDir, '{0}_smmip_counts.json'.format(prefix))
-    statsfile2 = os.path.join(statsDir, '{0}_extraction_metrics.json'.format(prefix))
-        
-    with open(statsfile1, 'w') as newfile:
-        json.dump(smmip_counts, newfile, indent=4)
-    with open(statsfile2, 'w') as newfile:
-        json.dump(read_counts, newfile, indent=4)
-
-    # merge bam files
-    finalDir = os.path.join(outdir, 'out')
-    assigned = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i and i[i.index('temp.assigned_reads.sorted.bam'):] == 'temp.assigned_reads.sorted.bam']
-    empty = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i and i[i.index('temp.empty_reads.sorted.bam'):] == 'temp.empty_reads.sorted.bam']
-    
-    assigned_filename = os.path.join(finalDir, prefix + '.assigned_reads.bam')
-    empty_filename = os.path.join(finalDir, prefix + '.empty_reads.bam')
-    
-    # make sure bams do exist
-    if assigned:
-        merge_bams(assigned_filename, assigned)
-        # sort and index merged bams
-        sort_index_bam(assigned_filename, '.assigned_reads.sorted.bam')
-    if empty:
-        merge_bams(empty_filename, empty)
-        # sort and index merged bams 
-        sort_index_bam(empty_filename, '.empty_reads.sorted.bam')
-    
-    # remove intermediate files
-    if remove:
-        # make a list of intermediate files:
-        L = [os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.bam' in i]
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.bam' in i])
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.assigned_reads.sorted.bam' in i])
-        L.extend([os.path.join(finalDir, i) for i in os.listdir(finalDir) if 'temp.empty_reads.sorted.bam' in i])
-        for i in F1 + F2 + L + [assigned_filename, empty_filename]:
-            os.remove(i)
+    if F:
+        if file_type == 'counts' or file_type == 'extraction':
+            # make a list of dictionaries with smmip counts    
+            L = []
+            for i in F:
+                infile = open(i)
+                L.append(json.load(infile))
+                infile.close()
+            if file_type == 'counts':
+                statsfile = '{0}_smmip_counts.json'.format(prefix)
+                merged = merge_smmip_counts(L)
+            elif file_type == 'extraction':
+                statsfile = '{0}_extraction_metrics.json'.format(prefix)    
+                merged = merge_stats(L)    
+            with open(statsfile, 'w') as newfile:
+                json.dump(merged, newfile, indent=4)
+        elif file_type == 'assigned' or file_type == 'empty':
+            if file_type == 'assigned':
+                bam_suffix = '{0}.assigned_reads.bam'
+                sorted_suffix = '.assigned_reads.sorted.bam'
+            elif file_type == 'empty':
+                bam_suffix = '{0}.empty_reads.bam'
+                sorted_suffix = '.empty_reads.sorted.bam'
+            bamfile = bam_suffix.format(prefix)        
+            merge_bams(bamfile, F)
+            # sort and index merged bam
+            sort_index_bam(bamfile, sorted_suffix)
+        # remove intermediate files
+        if remove:
+            discard = []
+            if file_type in ['extraction', 'counts']:
+                if file_type == 'extraction':
+                    discard = [i for i in F if 'temp' in i and 'extraction_metrics.json' in i]
+                elif discard == 'counts':
+                    discard = [i for i in F if 'temp' in i and 'smmip_counts.json' in i]
+            elif file_type in ['empty', 'assigned']:
+                if file_type == 'empty':
+                    discard = [i for i in F if 'temp.empty_reads.sorted.bam' in i]
+                elif file_type == 'assigned':
+                    discard = [i for i in F if 'temp.assigned_reads.sorted.bam' in i]
+            if discard:
+                for i in discard:
+                    os.remove(i)
         
 # this function generates a table with nucleotide counts. not currently being used. 
 def count_variants(bamfile, panel, outdir, max_depth, truncate, ignore_orphans,
@@ -338,7 +331,9 @@ def main():
     
     # merge chromosome-level files
     m_parser = subparsers.add_parser('merge', help='Merges all the chromosome-level stats and alignment files')
-    m_parser.add_argument('-o', '--Outdir', dest='outdir', help = 'Path to outputd directory. Current directory if not provided')
+    m_parser.add_argument('-pf', '--Prefix', dest='prefix', help = 'Prefix used to name the output files', required=True)
+    m_parser.add_argument('-ft', '--FileType', dest='file_type', choices = ["assigned", "empty", "counts", "extraction"], help = 'Type of the files to be merged', required=True)
+    m_parser.add_argument('-t', '--Files', dest='files', nargs='*', help = 'List of stats files or bams to be merged', required = True)
     m_parser.add_argument('--remove', dest='remove', action='store_true', help = 'Remove intermediate files. Default is False, becomes True if used')
     
     args = parser.parse_args()
@@ -364,7 +359,7 @@ def main():
             print(parser.format_help())
     elif args.subparser_name == 'merge':
         try:
-            merge_chromosome_files(args.outdir, args.remove)
+            merge_files(args.prefix, args.files, args.file_type, args.remove)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))
