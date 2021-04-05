@@ -169,7 +169,7 @@ def assign_smmips(outdir, sortedbam, prefix, remove, panel, upstream_nucleotides
         json.dump(smmip_counts, newfile, indent=4)
    
 
-def merge_chromosome_files(prefix, files, file_type, remove):
+def merge_files(prefix, files, file_type, remove):
     '''
     (str, list, str, bool) -> None
 
@@ -359,7 +359,7 @@ def main():
             print(parser.format_help())
     elif args.subparser_name == 'merge':
         try:
-            merge_chromosome_files(args.prefix, args.files, args.file_type, args.remove)
+            merge_files(args.prefix, args.files, args.file_type, args.remove)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))
