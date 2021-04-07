@@ -682,6 +682,39 @@ def get_positions(start, end, chromo_length):
     return start_pos, end_pos
 
 
+
+def count_reads(bamfile, chromosome, start, end):
+    '''
+    (str, str, int | None, int | None) -> int
+    
+    Returns the number of reads in a genomic region.
+    If chromosome is not defined, returns the number of reads mapped to the reference genome.
+    If chromosome is defined but start and end are not defined, returns the number of reads mapped to chromosome.
+    If region chromosome, start and end are defined, returns the number of reads on that region.
+    
+    Parameters
+    ----------
+    
+    - bamfile (str): Path to the input bam sorted on coordinates
+    - chromosome (str | None): Specifies the genomic region in the alignment file where reads are mapped.
+                               Examine reads on chromosome if used and on all chromosomes if None
+                               Chromosome format must match format in the bam header
+    - start (int or None): Start position of region on chromosome if defined
+    - end (int or None): End position of region on chromosome if defined
+    '''
+    
+    infile = pysam.AlignmentFile(bamfile, 'rb')
+    
+    if chromosome:
+        chromo_length = infile.get_reference_length(chromosome)
+        start_pos, end_pos = get_positions(start, end, chromo_length)
+        read_count = infile.count(contig=chromosome,start=start_pos, end=end_pos, until_eof=False, read_callback='all')
+    else:
+        read_count = infile.count(until_eof=False, read_callback='all')
+    infile.close()
+    return read_count
+    
+
 def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_nucleotides, umi_length, max_subs, match, mismatch, gap_opening, gap_extension, alignment_overlap_threshold, matches_threshold, chromosome, start, end):
     '''
     (str, pysam.AlignmentFile, pysam.AlignmentFile, dict, int, int, int, float, float, float, float, float, float, bool, str | None) -> (dict, dict)
@@ -725,10 +758,8 @@ def assign_reads_to_smmips(bamfile, assigned_file, empty_file, panel, upstream_n
         total_count = infile.count(until_eof=False, read_callback='all')
     metrics['total'] = total_count  
     # count the number of reads in region, ignoring unmapped reads, secondary and supplementary alignments 
-    with pysam.AlignmentFile(bamfile, 'rb') as infile:
-        read_count = infile.count(until_eof=False, read_callback='all')
-    metrics['reads'] = read_count
-        
+    metrics['reads'] = count_reads(bamfile, chromosome, start, end)
+    
     # count smmips
     smmip_counts = {panel[i]['mip_name'] : {'empty':0, 'not_empty':0} for i in panel}
             
